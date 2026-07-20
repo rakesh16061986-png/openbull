@@ -3,6 +3,14 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 
+// Backend proxy target is overridable via BACKEND_PORT so this same config
+// works unmodified for both the production deployment (port 8000, the
+// default) and the isolated dev deployment (port 8001, set in that
+// deployment's systemd unit) - see openbull-update-runbook.md.
+const backendPort = process.env.BACKEND_PORT || "8000"
+const backendTarget = `http://127.0.0.1:${backendPort}`
+const backendWsTarget = `ws://127.0.0.1:${backendPort}`
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -24,19 +32,19 @@ export default defineConfig({
       // Trailing slashes prevent accidental prefix matches — e.g. the bare
       // "/web" rule used to swallow "/websocket/test" because it starts with
       // "/web" — causing the browser to hit FastAPI instead of Vite's SPA.
-      "/api/": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/auth/": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/web/": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/health": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/upstox/": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/zerodha/": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/api/": { target: backendTarget, changeOrigin: true },
+      "/auth/": { target: backendTarget, changeOrigin: true },
+      "/web/": { target: backendTarget, changeOrigin: true },
+      "/health": { target: backendTarget, changeOrigin: true },
+      "/upstox/": { target: backendTarget, changeOrigin: true },
+      "/zerodha/": { target: backendTarget, changeOrigin: true },
       // Strategy module WebSocket — proxied with ws:true so the upgrade
       // handshake is forwarded to the backend. Without this Vite serves
       // the SPA's index.html for /ws/strategy/{id} and the browser sees
       // an immediate close (or just hangs at opening) — which was the
       // whole reason live PnL never streamed in dev.
       "/ws/": {
-        target: "ws://127.0.0.1:8000",
+        target: backendWsTarget,
         ws: true,
         changeOrigin: true,
       },
