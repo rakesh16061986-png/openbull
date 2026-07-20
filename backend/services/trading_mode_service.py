@@ -90,7 +90,7 @@ def get_trading_mode_sync() -> str:
             _set_cache(value)
             return value
     except Exception:
-        return TRADING_MODE_LIVE
+        return TRADING_MODE_SANDBOX  # patched 2026-07-20: was TRADING_MODE_LIVE
 
 
 async def get_trading_mode(db: AsyncSession | None = None) -> str:
@@ -125,7 +125,7 @@ async def get_trading_mode(db: AsyncSession | None = None) -> str:
                 mode = await _load(s)
     except Exception:
         logger.exception("Failed to read trading_mode; defaulting to live")
-        return TRADING_MODE_LIVE
+        return TRADING_MODE_SANDBOX  # patched 2026-07-20: was TRADING_MODE_LIVE
 
     _set_cache(mode)
     return mode

@@ -56,3 +56,5 @@ htmlcov/
 *.pem
 *.key
 credentials.json
+*.bak-*
+strategies/

@@ -10,9 +10,20 @@ logger = logging.getLogger(__name__)
 
 
 def get_orderstatus_with_auth(
-    orderid: str, auth_token: str, broker: str, config: dict | None = None
+    orderid: str, auth_token: str, broker: str, config: dict | None = None, user_id: int | None = None,
 ) -> tuple[bool, dict[str, Any], int]:
     """Get status of a specific order using provided auth token."""
+    if user_id is not None:
+        try:
+            from backend.services.trading_mode_service import get_trading_mode_sync
+
+            if get_trading_mode_sync() == "sandbox":
+                from backend.services.sandbox_service import get_order_status as sbx_status
+
+                return sbx_status(user_id, orderid)
+        except Exception:
+            logger.exception("sandbox dispatch failed for orderstatus; falling back to live")
+
     try:
         api_module = importlib.import_module(f"backend.broker.{broker}.api.order_api")
         mapping_module = importlib.import_module(f"backend.broker.{broker}.mapping.order_data")
