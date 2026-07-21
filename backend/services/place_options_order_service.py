@@ -19,6 +19,7 @@ def place_options_order(
     auth_token: str,
     broker: str,
     config: dict | None = None,
+    user_id: int | None = None,
 ) -> tuple[bool, dict[str, Any], int]:
     """Place an options order using offset-based symbol resolution."""
     underlying = options_data.get("underlying")
@@ -94,6 +95,7 @@ def place_options_order(
 
     ok_order, order_resp, status_code = place_order(
         order_data=order_data, auth_token=auth_token, broker=broker, config=config,
+        user_id=user_id,
     )
     if not ok_order:
         return False, order_resp, status_code

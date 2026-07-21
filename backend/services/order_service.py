@@ -92,7 +92,7 @@ def place_order_with_auth(
         logger.exception("Error in broker_module.place_order_api: %s", e)
         return False, {"status": "error", "message": "Failed to place order due to internal error"}, 500
 
-    if res and res.status == 200:
+    if res and res.status_code == 200:
         return True, {"status": "success", "orderid": order_id}, 200
     else:
         message = (
@@ -100,7 +100,7 @@ def place_order_with_auth(
             if isinstance(response_data, dict)
             else "Failed to place order"
         )
-        status = res.status if res and res.status != 200 else 500
+        status = res.status_code if res and res.status_code != 200 else 500
         return False, {"status": "error", "message": message}, status
 
 

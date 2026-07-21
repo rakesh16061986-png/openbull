@@ -39,6 +39,7 @@ async def api_options_order(request: Request):
 
     success, response_data, status_code = place_options_order(
         options_data=body, auth_token=auth_token, broker=broker_name, config=config,
+        user_id=user_id,
     )
 
     return JSONResponse(content=response_data, status_code=status_code)
