@@ -73,7 +73,8 @@ def _import_broker_modules(broker_name: str) -> dict[str, Any] | None:
 
 
 def get_orderbook_with_auth(
-    auth_token: str, broker: str, config: dict | None = None, user_id: int | None = None
+    auth_token: str, broker: str, config: dict | None = None, user_id: int | None = None,
+    all_history: bool = False,
 ) -> tuple[bool, dict[str, Any], int]:
     """Get order book using provided auth token.
 
@@ -87,7 +88,7 @@ def get_orderbook_with_auth(
             if get_trading_mode_sync() == "sandbox":
                 from backend.services.sandbox_service import get_orderbook as sbx_ob
 
-                return sbx_ob(user_id)
+                return sbx_ob(user_id, all_history=all_history)
         except Exception:
             logger.exception("sandbox dispatch failed; falling back to live")
 
@@ -128,10 +129,11 @@ def get_orderbook(
     broker: str | None = None,
     config: dict | None = None,
     user_id: int | None = None,
+    all_history: bool = False,
 ) -> tuple[bool, dict[str, Any], int]:
     """Get order book. Supports both API-key and direct auth token calls."""
     if auth_token and broker:
-        return get_orderbook_with_auth(auth_token, broker, config, user_id=user_id)
+        return get_orderbook_with_auth(auth_token, broker, config, user_id=user_id, all_history=all_history)
 
     return (
         False,

@@ -8,6 +8,8 @@ import { cancelAllOrders, cancelOrder } from "@/api/orders";
 import { ModifyOrderDialog } from "@/components/trading/ModifyOrderDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SortableHead, type SortState } from "@/components/ui/sortable-head";
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
@@ -107,9 +109,13 @@ export default function OrderBook() {
     direction: "desc",
   });
 
+  // Default is the current session only (rolls over cleanly at each day's
+  // boundary) - flip this to look back at a prior session's fills.
+  const [showAllHistory, setShowAllHistory] = useState(false);
+
   const { data: orders, isLoading, error } = useQuery({
-    queryKey: ["orderbook"],
-    queryFn: getOrderbook,
+    queryKey: ["orderbook", showAllHistory],
+    queryFn: () => getOrderbook(showAllHistory),
     refetchInterval: 15000,
   });
 
@@ -243,7 +249,17 @@ export default function OrderBook() {
           <h1 className="text-2xl font-bold tracking-tight">Orderbook</h1>
           <p className="text-sm text-muted-foreground">View all your orders</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="orderbook-all-history"
+              checked={showAllHistory}
+              onCheckedChange={setShowAllHistory}
+            />
+            <Label htmlFor="orderbook-all-history" className="text-sm text-muted-foreground">
+              Show previous sessions
+            </Label>
+          </div>
           <Button
             variant="outline"
             onClick={handleExportCsv}
@@ -278,6 +294,7 @@ export default function OrderBook() {
           <CardTitle>Orders</CardTitle>
           <CardDescription>
             {orders?.length ?? 0} order{(orders?.length ?? 0) !== 1 ? "s" : ""} found
+            {showAllHistory ? " (all sessions)" : " (current session)"}
           </CardDescription>
         </CardHeader>
         <CardContent>

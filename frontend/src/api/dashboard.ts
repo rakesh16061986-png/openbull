@@ -6,13 +6,17 @@ export async function getDashboard(): Promise<FundsData> {
   return response.data.data;
 }
 
-export async function getOrderbook(): Promise<OrderbookItem[]> {
-  const response = await api.get<{ status: string; data: { orders: OrderbookItem[] } }>("/web/orderbook");
+export async function getOrderbook(allHistory = false): Promise<OrderbookItem[]> {
+  const response = await api.get<{ status: string; data: { orders: OrderbookItem[] } }>("/web/orderbook", {
+    params: { all_history: allHistory },
+  });
   return response.data.data.orders;
 }
 
-export async function getTradebook(): Promise<TradebookItem[]> {
-  const response = await api.get<{ status: string; data: TradebookItem[] }>("/web/tradebook");
+export async function getTradebook(allHistory = false): Promise<TradebookItem[]> {
+  const response = await api.get<{ status: string; data: TradebookItem[] }>("/web/tradebook", {
+    params: { all_history: allHistory },
+  });
   return response.data.data;
 }
 

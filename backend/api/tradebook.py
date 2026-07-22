@@ -40,11 +40,18 @@ async def api_tradebook(request: Request):
 
     user_id, auth_token, broker_name, config = api_user
 
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    all_history = bool(body.get("all_history", False))
+
     success, response_data, status_code = get_tradebook_with_auth(
         auth_token=auth_token,
         broker=broker_name,
         config=config,
         user_id=user_id,
+        all_history=all_history,
     )
 
     return JSONResponse(content=response_data, status_code=status_code)

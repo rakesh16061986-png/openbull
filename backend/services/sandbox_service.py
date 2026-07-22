@@ -289,8 +289,8 @@ def close_all_positions(user_id: int) -> tuple[bool, dict[str, Any], int]:
 
 # -- reads -----------------------------------------------------------------
 
-def get_orderbook(user_id: int) -> tuple[bool, dict[str, Any], int]:
-    orders = [order_manager.to_dict(o) for o in order_manager.list_orders(user_id)]
+def get_orderbook(user_id: int, all_history: bool = False) -> tuple[bool, dict[str, Any], int]:
+    orders = [order_manager.to_dict(o) for o in order_manager.list_orders(user_id, all_history=all_history)]
 
     # Shape matches what orderbook_service returns for live mode.
     total = len(orders)
@@ -321,8 +321,8 @@ def get_orderbook(user_id: int) -> tuple[bool, dict[str, Any], int]:
     )
 
 
-def get_tradebook(user_id: int) -> tuple[bool, dict[str, Any], int]:
-    trades = [order_manager.trade_to_dict(t) for t in order_manager.list_trades(user_id)]
+def get_tradebook(user_id: int, all_history: bool = False) -> tuple[bool, dict[str, Any], int]:
+    trades = [order_manager.trade_to_dict(t) for t in order_manager.list_trades(user_id, all_history=all_history)]
     return True, {"status": "success", "mode": "sandbox", "data": trades}, 200
 
 

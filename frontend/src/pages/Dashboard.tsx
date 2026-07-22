@@ -120,13 +120,13 @@ function useDashboardData() {
   });
   const orders = useQuery({
     queryKey: ["dashboard", "orderbook"],
-    queryFn: getOrderbook,
+    queryFn: () => getOrderbook(),
     refetchInterval: 20_000,
     staleTime: 10_000,
   });
   const trades = useQuery({
     queryKey: ["dashboard", "tradebook"],
-    queryFn: getTradebook,
+    queryFn: () => getTradebook(),
     refetchInterval: 30_000,
     staleTime: 15_000,
   });

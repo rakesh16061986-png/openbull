@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { SortableHead, type SortState } from "@/components/ui/sortable-head";
 import {
@@ -73,9 +75,11 @@ export default function TradeBook() {
     direction: "desc",
   });
 
+  const [showAllHistory, setShowAllHistory] = useState(false);
+
   const { data: trades, isLoading, error } = useQuery({
-    queryKey: ["tradebook"],
-    queryFn: getTradebook,
+    queryKey: ["tradebook", showAllHistory],
+    queryFn: () => getTradebook(showAllHistory),
     refetchInterval: 15000,
   });
 
@@ -144,7 +148,18 @@ export default function TradeBook() {
             View all executed trades
           </p>
         </div>
-        <Button
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="tradebook-all-history"
+              checked={showAllHistory}
+              onCheckedChange={setShowAllHistory}
+            />
+            <Label htmlFor="tradebook-all-history" className="text-sm text-muted-foreground">
+              Show previous sessions
+            </Label>
+          </div>
+          <Button
           variant="outline"
           onClick={handleExportCsv}
           disabled={(trades?.length ?? 0) === 0}
@@ -155,7 +170,8 @@ export default function TradeBook() {
           }
         >
           Export CSV
-        </Button>
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -163,6 +179,7 @@ export default function TradeBook() {
           <CardTitle>Trades</CardTitle>
           <CardDescription>
             {trades?.length ?? 0} trade{(trades?.length ?? 0) !== 1 ? "s" : ""} found
+            {showAllHistory ? " (all sessions)" : " (current session)"}
           </CardDescription>
         </CardHeader>
         <CardContent>
