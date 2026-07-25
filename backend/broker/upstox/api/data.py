@@ -644,3 +644,73 @@ def _filter_candles_by_date(
             new_candle[0] = ts
             out.append(new_candle)
     return out
+
+
+# Expired-instrument endpoints (Upstox Plus only - UDAPI1149 without it).
+# Used for backtesting: once a weekly/monthly F&O contract expires, Upstox
+# drops it from the tradable instrument master (get_token_from_cache returns
+# nothing for it), so these are the only way to reach its historical candles.
+
+EXPIRED_INTERVAL_MAP = {
+    "1m": "1minute", "3m": "3minute", "5m": "5minute",
+    "15m": "15minute", "30m": "30minute", "D": "day",
+}
+
+
+def get_expired_contracts(kind: str, instrument_key: str, expiry_date: str, auth_token: str) -> list[dict]:
+    """List expired option or future contracts for one underlying+expiry.
+
+    kind: "option" or "future". Returns each contract's own
+    expired_instrument_key, needed for get_expired_history below.
+    """
+    if kind not in ("option", "future"):
+        raise ValueError("kind must be 'option' or 'future'")
+    client = get_httpx_client()
+    url = (
+        f"https://api.upstox.com/v2/expired-instruments/{kind}/contract"
+        f"?instrument_key={_encode_key(instrument_key)}&expiry_date={expiry_date}"
+    )
+    resp = client.get(url, headers=_headers(auth_token))
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("status") != "success":
+        raise ValueError(data.get("message", "Failed to fetch expired contracts"))
+    return data.get("data") or []
+
+
+def get_expired_history(
+    expired_instrument_key: str, interval: str, start_date: str, end_date: str, auth_token: str,
+) -> list[dict]:
+    """Historical candles for one already-expired contract.
+
+    interval is one of EXPIRED_INTERVAL_MAP's keys (e.g. "5m"). Returns the
+    same list[dict] shape as get_history() (timestamp/open/high/low/close/volume/oi).
+    """
+    if interval not in EXPIRED_INTERVAL_MAP:
+        raise ValueError(f"Unsupported interval: {interval}. Supported: {list(EXPIRED_INTERVAL_MAP)}")
+    upstox_interval = EXPIRED_INTERVAL_MAP[interval]
+    client = get_httpx_client()
+    encoded = _encode_key(expired_instrument_key)
+    url = (
+        f"https://api.upstox.com/v2/expired-instruments/historical-candle/"
+        f"{encoded}/{upstox_interval}/{end_date}/{start_date}"
+    )
+    resp = client.get(url, headers=_headers(auth_token))
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("status") != "success":
+        raise ValueError(data.get("message", "Failed to fetch expired historical candles"))
+    candles = (data.get("data") or {}).get("candles") or []
+
+    out: list[dict] = []
+    for c in candles:
+        ts = c[0]
+        ts = pd.to_datetime(ts).timestamp() if isinstance(ts, str) else (ts / 1000 if ts > 1e12 else ts)
+        out.append({
+            "timestamp": int(ts),
+            "open": float(c[1]), "high": float(c[2]), "low": float(c[3]), "close": float(c[4]),
+            "volume": int(c[5]) if len(c) > 5 and c[5] is not None else 0,
+            "oi": int(c[6]) if len(c) > 6 and c[6] is not None else 0,
+        })
+    out.sort(key=lambda r: r["timestamp"])
+    return out
