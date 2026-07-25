@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
-from backend.dependencies import get_db, get_current_user
+from backend.dependencies import get_db, get_current_user, invalidate_user_cache
 from backend.models.user import User
 from backend.models.auth import BrokerAuth
 from backend.models.broker_config import BrokerConfig
@@ -346,6 +346,12 @@ async def _finalize_broker_auth(
         broker=broker_name,
     ))
     await db.commit()
+
+    # A stale api_ctx/broker_ctx cache entry from before this re-auth would
+    # otherwise keep serving the OLD token to external API calls (strategy
+    # polling, /api/v1/*) until its own TTL expires - clear it now so the
+    # freshly-committed token is picked up on the very next request.
+    await invalidate_user_cache(user_id)
 
     _start_master_contract_download(broker_name, access_token)
 

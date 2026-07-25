@@ -1,6 +1,7 @@
 import logging
 import secrets
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select, func
@@ -108,13 +109,34 @@ async def _resume_broker_if_valid(
         margin = await run_in_threadpool(
             funds_mod.get_margin_data, auth_token, broker_config
         )
+    except httpx.HTTPStatusError as exc:
+        # Only a genuine auth rejection from the broker (401/403) means the
+        # token is actually dead - revoke it. Anything else (429 rate limit,
+        # 5xx, broker-side hiccup) is not evidence the token is bad, and
+        # revoking on those false-positives was killing live strategy
+        # polling for the rest of the day until the next real re-login -
+        # see the 403 "No active broker session" errors this was causing.
+        if exc.response is not None and exc.response.status_code in (401, 403):
+            logger.warning(
+                "Broker session resume check failed for user %s (%s): %s",
+                user.username, candidate_broker, exc,
+            )
+            broker_auth.is_revoked = True
+            await invalidate_user_cache(user.id)
+        else:
+            logger.warning(
+                "Broker session resume check got a non-auth HTTP error for user %s (%s): %s "
+                "- leaving the stored token as-is, not revoking",
+                user.username, candidate_broker, exc,
+            )
+        return None
     except Exception as exc:
+        # Network error, timeout, etc. - not a signal the token is invalid.
         logger.warning(
-            "Broker session resume check failed for user %s (%s): %s",
+            "Broker session resume check errored for user %s (%s): %s - "
+            "leaving the stored token as-is, not revoking",
             user.username, candidate_broker, exc,
         )
-        broker_auth.is_revoked = True
-        await invalidate_user_cache(user.id)
         return None
 
     if not margin:
