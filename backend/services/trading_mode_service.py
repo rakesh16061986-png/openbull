@@ -84,9 +84,18 @@ def get_trading_mode_sync() -> str:
             row = db.execute(
                 _select(AppSettings).where(AppSettings.key == TRADING_MODE_KEY)
             ).scalar_one_or_none()
-            value = row.value if row else TRADING_MODE_LIVE
+            # patched 2026-07-25: was TRADING_MODE_LIVE. The 2026-07-20 patch
+            # only fixed the exception path below - this missing-row/invalid-
+            # value path still defaulted to live, on the stated reasoning that
+            # "live is safe because the broker will reject unauthenticated
+            # requests anyway". That stopped being true once a real, working,
+            # auto-renewing broker connection existed (see upstox-daily-login.md)
+            # - a missing settings row with a live broker session would have
+            # silently started routing real orders. Sandbox is the only default
+            # that's safe regardless of broker connection state.
+            value = row.value if row else TRADING_MODE_SANDBOX
             if value not in VALID_TRADING_MODES:
-                value = TRADING_MODE_LIVE
+                value = TRADING_MODE_SANDBOX
             _set_cache(value)
             return value
     except Exception:
@@ -96,9 +105,11 @@ def get_trading_mode_sync() -> str:
 async def get_trading_mode(db: AsyncSession | None = None) -> str:
     """Return the current mode (``"live"`` or ``"sandbox"``).
 
-    Falls back to ``"live"`` if the row is missing or the DB is unreachable —
-    "live" is the safe default because the caller will reach the broker API
-    which will reject unauthenticated requests anyway.
+    Falls back to ``"sandbox"`` if the row is missing, the value is invalid,
+    or the DB is unreachable (patched 2026-07-25 - previously fell back to
+    "live" on the reasoning that the broker would reject unauthenticated
+    requests, which stopped being a safe assumption once a real, working
+    broker connection existed - see upstox-daily-login.md).
     """
     now = time.monotonic()
     with _cache_lock:
@@ -111,10 +122,12 @@ async def get_trading_mode(db: AsyncSession | None = None) -> str:
                 select(AppSettings).where(AppSettings.key == TRADING_MODE_KEY)
             )
         ).scalar_one_or_none()
-        value = row.value if row else TRADING_MODE_LIVE
+        # patched 2026-07-25: see get_trading_mode_sync()'s comment above -
+        # missing row / invalid value now fails safe to sandbox, not live.
+        value = row.value if row else TRADING_MODE_SANDBOX
         if value not in VALID_TRADING_MODES:
-            logger.warning("Invalid trading_mode %r in DB — treating as live", value)
-            value = TRADING_MODE_LIVE
+            logger.warning("Invalid trading_mode %r in DB — treating as sandbox", value)
+            value = TRADING_MODE_SANDBOX
         return value
 
     try:
@@ -124,7 +137,7 @@ async def get_trading_mode(db: AsyncSession | None = None) -> str:
             async with async_session() as s:
                 mode = await _load(s)
     except Exception:
-        logger.exception("Failed to read trading_mode; defaulting to live")
+        logger.exception("Failed to read trading_mode; defaulting to sandbox")
         return TRADING_MODE_SANDBOX  # patched 2026-07-20: was TRADING_MODE_LIVE
 
     _set_cache(mode)
